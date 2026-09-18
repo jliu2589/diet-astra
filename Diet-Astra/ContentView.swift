@@ -1,17 +1,31 @@
 import SwiftUI
-import Playgrounds
 
 struct ContentView: View {
     var body: some View {
-        Text("Hello, world!")
-            .padding()
+        TabView {
+            Tab("Today", systemImage: "sun.max") {
+                TodayView()
+            }
+
+            Tab("Food", systemImage: "fork.knife") {
+                FoodView()
+            }
+
+            Tab("Weight", systemImage: "scalemass") {
+                WeightView()
+            }
+
+            Tab("Workouts", systemImage: "dumbbell") {
+                WorkoutsView()
+            }
+
+            Tab("Settings", systemImage: "gearshape") {
+                SettingsView()
+            }
+        }
     }
 }
 
 #Preview {
     ContentView()
-}
-
-#Playground {
-    _ = 1 + 2
 }

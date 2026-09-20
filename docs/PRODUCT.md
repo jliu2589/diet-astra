@@ -1,7 +1,16 @@
 # Product
 
 Diet Astra helps users track diet, strength training, body weight, and long-term
-health. The current bootstrap provides navigation and placeholders only.
+health. The current phase is an iPhone-only UI prototype: Today provides day,
+week, and month reviews; Trends provides longer-term sample analytics. A profile
+menu contains sample goals, basic settings, and the existing local weight journal.
+
+Meals, nutrition, activity, goals, and review-screen weight data are realistic
+samples. Meal nutrition and dictation are simulated. Users can choose or capture a meal
+photo and browse photos for a selected day. Photos stay in memory and reset with
+the demo on relaunch; they are not uploaded.
+The original manual weight journal remains functional and separate from the demo.
+Review the UI before adding backend integrations or further functional features.
 
 ## MVP priorities
 
@@ -14,7 +23,7 @@ health. The current bootstrap provides navigation and placeholders only.
 
 ## Later
 
-Import weight and activity through HealthKit, add meal dictation and photos,
+Import weight and activity through HealthKit, add real meal dictation and photo analysis,
 and eventually support Apple Watch workouts. Advanced AI coaching, social
 features, complex recommendations, sophisticated automation, and direct VeSync
 integration are outside the MVP. Prefer HealthKit when device data is available there.
@@ -30,4 +39,4 @@ integration are outside the MVP. Prefer HealthKit when device data is available 
   HealthKit permissions required by the feature and avoid unnecessary backend duplication.
 
 Future integrations may use HealthKit, Supabase/PostgreSQL, and the OpenAI API.
-None are part of this bootstrap.
+None are part of the current implementation.

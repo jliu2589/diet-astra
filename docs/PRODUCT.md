@@ -1,42 +1,46 @@
 # Product
 
-Diet Astra helps users track diet, strength training, body weight, and long-term
-health. The current phase is an iPhone-only UI prototype: Today provides day,
-week, and month reviews; Trends provides longer-term sample analytics. A profile
-menu contains sample goals, basic settings, and the existing local weight journal.
+Diet Astra is a private iPhone app for daily nutrition, weight trends and strength
+training. Accounts are independent; the intended first users are the owner and
+mother, with no hard-coded identities or shared health records.
 
-Meals, nutrition, activity, goals, and review-screen weight data are realistic
-samples. Meal nutrition and dictation are simulated. Users can choose or capture a meal
-photo and browse photos for a selected day. Photos stay in memory and reset with
-the demo on relaunch; they are not uploaded.
-The original manual weight journal remains functional and separate from the demo.
-Review the UI before adding backend integrations or further functional features.
+## V1 scope
 
-## MVP priorities
+- Authenticated daily dashboard and historical day/week/month review.
+- Manual weight history, edit/delete, trend/rate; read-only HealthKit weight,
+  steps, workout details, active energy and exercise minutes with explicit permission.
+- Structured meal foods/portions and editable calories, protein, carbs and fat.
+- Typed or native on-device dictated input; camera/library photos plus context;
+  server-side AI interpretation followed by mandatory review and explicit save.
+- Per-user nutrition/weight/training goals, deterministic projections, and a
+  conservative maintenance estimate after sufficient complete records exist.
+- Strength sessions, exercises, sets, reps, pounds, RIR, history and previous sets.
+- Real-data weight/calorie/protein/training charts and goal comparisons.
 
-1. Record body weight and show long-term trends.
-2. Log meals from text as structured foods, quantities, calories, and macros.
-3. Show daily calorie and macro totals.
-4. Support weight goals and projections; estimate maintenance calories from
-   observed intake and weight trends.
-5. Log strength exercises, sets, reps, weight, and RIR/intensity.
+## Data rules
 
-## Later
+AI estimates are not nutrition truth. Users can enter label/measured values,
+correct every estimated food and portion, and identify whether a meal includes
+estimates. V1 has no verified food database: AI-derived per-100g values are clearly
+estimated, portion scaling and totals are deterministic. A verified nutrition
+source remains a future accuracy improvement, not a claimed V1 capability.
 
-Import weight and activity through HealthKit, add real meal dictation and photo analysis,
-and eventually support Apple Watch workouts. Advanced AI coaching, social
-features, complex recommendations, sophisticated automation, and direct VeSync
-integration are outside the MVP. Prefer HealthKit when device data is available there.
+HealthKit is read only and stays on device; manual measurements take precedence
+on days with manual entries. No automatic upload or duplication of Health data.
+Photo analysis is explicit; Astra discards images when the composer closes and
+stores confirmed nutrition only. The former demo photo gallery is intentionally
+absent from authenticated accounts under the V1 no-permanent-photo-storage rule.
 
-## Data and nutrition principles
+Missing food logs are not zero-intake days. Users mark a food day complete; any
+meal change reopens it. Maintenance estimation requires complete intake history.
+The app does not recommend medical treatment or automatically alter calorie goals.
 
-- Keep calorie, macro, goal, and projection calculations deterministic in code.
-- Use AI to interpret unstructured input, with structured output; it must not
-  be the sole source of nutrition truth.
-- Let users edit AI meal estimates before saving and distinguish estimates
-  from measured data.
-- Minimize collection and storage of sensitive health information. Request only
-  HealthKit permissions required by the feature and avoid unnecessary backend duplication.
+## Status and boundaries
 
-Future integrations may use HealthKit, Supabase/PostgreSQL, and the OpenAI API.
-None are part of the current implementation.
+Implementation and local checks do not establish a working deployed V1. See
+[V1 acceptance](V1.md) for verified results and remaining Supabase/device steps.
+Prototype fixtures are Debug-only navigation and never appear as account data.
+
+Apple Watch UI, AI coaching, social features, complex recommendations, automation,
+and direct VeSync integration remain out of scope. No offline mutation queue is
+provided: failed saves retain their draft and require retry.

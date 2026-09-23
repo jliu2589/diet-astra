@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import { portions, validateRequest } from '../supabase/functions/interpret-meal/nutrition.mjs';
+const food = { name: 'Rice', grams: 250, calories_per100g: 130, protein_per100g: 2.7, carbs_per100g: 28, fat_per100g: .3 };
+const meal = { title: 'Lunch', note: 'Verify cooked portion', foods: [food] };
+const result = portions(meal, () => 'id');
+assert.equal(result.foods[0].calories, 325);
+assert.equal(result.foods[0].protein, 6.75);
+assert.equal(result.foods[0].fat, .75);
+for (const invalid of [null, {}, { ...meal, foods: [] }, { ...meal, foods: [{ ...food, grams: -1 }] }, { ...meal, foods: [{ ...food, protein_per100g: 101 }] }, { ...meal, foods: [{ ...food, calories_per100g: NaN }] }]) assert.throws(() => portions(invalid, () => 'id'));
+for (const invalid of [{ text: '' }, { text: 'x'.repeat(4001) }, { text: 'Food', image: 'https://attacker.invalid/image' }, { text: 'Food', image: 'not-a-jpeg' }, { image: '/9j/abc=' }]) assert.throws(() => validateRequest(invalid));
+assert.equal(validateRequest({ text: ' rice ' }).text, 'rice');
+console.log('Nutrition checks passed: arithmetic, malformed model output, bounds, request/image validation');

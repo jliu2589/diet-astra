@@ -2,10 +2,10 @@ import Charts
 import SwiftUI
 
 private enum TrendMetric: String, CaseIterable, Identifiable {
-    case weight = "Weight", calories = "Calories", training = "Training", all = "All"
+    case weight = "Weight", calories = "Calories", protein = "Protein", training = "Training", all = "All"
     var id: String { rawValue }
     var unit: String {
-        switch self { case .weight: "lb"; case .calories: "kcal / day"; case .all: "% of goal"; case .training: "workouts" }
+        switch self { case .weight: "lb"; case .calories: "kcal / day"; case .protein: "g / day"; case .all: "% of goal"; case .training: "workouts" }
     }
 }
 
@@ -17,9 +17,12 @@ private struct TrendPoint: Identifiable {
 
 struct TrendsView: View {
     let diary: DemoDiary
+    @Environment(\.accountStore) private var account
     @State private var metric = TrendMetric.weight
     @State private var range = 28
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var goalsAvailable: Bool { diary.isDemo || account?.goals != nil }
 
     private var rangeLabel: String {
         switch range {
@@ -50,27 +53,30 @@ struct TrendsView: View {
         switch metric {
         case .weight: return days.compactMap { day in day.weight.map { TrendPoint(date: day.date, value: $0) } }
         case .calories: return days.filter(\.hasNutrition).map { TrendPoint(date: $0.date, value: Double($0.calories)) }
+        case .protein: return days.filter(\.hasNutrition).map { TrendPoint(date: $0.date, value: Double($0.protein)) }
         case .all: return []
         case .training:
             let weeks = Dictionary(grouping: days) { diary.calendar.dateInterval(of: .weekOfYear, for: $0.date)!.start }
-            return weeks.map { TrendPoint(date: $0.key, value: Double($0.value.filter { $0.workout != nil }.count)) }.sorted { $0.date < $1.date }
+            return weeks.map { TrendPoint(date: $0.key, value: Double(ReviewSummary(days: $0.value).workouts)) }.sorted { $0.date < $1.date }
         }
     }
     private var headline: String {
         if metric == .all { return "Together" }
-        if metric == .weight { return (points.last?.value ?? 0).formatted(.number.precision(.fractionLength(1))) }
-        if metric == .training { return days.filter { $0.workout != nil }.count.formatted() }
+        if metric == .weight { return points.last.map { $0.value.formatted(.number.precision(.fractionLength(1))) } ?? "—" }
+        if metric == .training { return ReviewSummary(days: days).workouts.formatted() }
         let summary = ReviewSummary(days: days)
-        return summary.average(\.calories).formatted()
+        return summary.loggedDays.isEmpty ? "—" : summary.average(metric == .protein ? \.protein : \.calories).formatted()
     }
     private var description: String {
         switch metric {
         case .weight:
+            guard points.count >= 2 else { return "Add measurements to see a change over time" }
             let change = (points.last?.value ?? 0) - (points.first?.value ?? 0)
             return "\(change.formatted(.number.sign(strategy: .always()).precision(.fractionLength(1)))) lb across this period"
-        case .calories: return "Average intake · goal 2,500 kcal per day"
+        case .calories: return goalsAvailable ? "Average intake · goal \(diary.goals.calories.formatted()) kcal per day" : "Average logged intake"
+        case .protein: return goalsAvailable ? "Average intake · goal \(diary.goals.protein) g per day" : "Average logged protein"
         case .all: return "Weekly averages and workout totals · % of each goal"
-        case .training: return "Sessions completed · goal 4 per week"
+        case .training: return "Sessions completed · goal \(diary.goals.workouts) per week"
         }
     }
 
@@ -104,20 +110,38 @@ struct TrendsView: View {
                         Text(metric.unit).font(.subheadline).foregroundStyle(.secondary)
                     }
                     Text(description).font(.subheadline).foregroundStyle(AstraStyle.accent)
-                    if metric == .all {
+                    if points.isEmpty && metric != .all && metric != .training { ContentUnavailableView("No measurements yet", systemImage: "chart.xyaxis.line") }
+                    if metric == .all && !goalsAvailable {
+                        Text("Save your goals to compare trends together.")
+                    } else if metric == .all && summary.combined.isEmpty {
+                        ContentUnavailableView("Your trends start here", systemImage: "chart.xyaxis.line", description: Text("Log measurements, meals or workouts to see your progress."))
+                    } else if metric == .all {
                         combinedChart.frame(height: 220).padding(.top, 12)
                     } else if metric == .training && range == 7 {
                         dailyTrainingChart.frame(height: 220).padding(.top, 12)
                     } else {
                         mainChart.frame(height: 220).padding(.top, 12)
                     }
-                    Text(metric == .all ? "100% = 140 lb, 2,500 kcal/day, or 4 workouts/week. Edge weeks may be partial. These are relative goals, not a shared unit." : metric == .training ? (range == 7 ? "This week · Monday–Sunday. One bar per day; remaining days are empty." : "Weekly totals. The first and last weeks may be partial.") : "\(points.count) sample measurements · \(rangeLabel)")
+                    Text(metric == .all && !goalsAvailable ? "No goals saved yet." : metric == .all ? "100% = \(diary.goals.target_weight.formatted()) lb, \(diary.goals.calories) kcal/day, or \(diary.goals.workouts) workouts/week. Edge weeks may be partial. These are relative goals, not a shared unit." : metric == .training ? (range == 7 ? "This week · Monday–Sunday. One bar per day; remaining days are empty." : "Weekly totals. The first and last weeks may be partial.") : "\(points.count) measurements · \(rangeLabel)")
                         .font(.caption2).foregroundStyle(.secondary)
                 }
                 Divider()
-                calorieBalance
+                if goalsAvailable { calorieBalance }
+                else { Text("Set your goals in the menu to see calories compared with your target.").font(.caption) }
                 if metric == .training {
-                    strengthChart
+                    if diary.isDemo { strengthChart }
+                    else if let account {
+                        VStack(alignment: .leading, spacing: 12) {
+                            SectionHeading(title: "Training volume", detail: "lb × reps")
+                            if days.contains(where: { $0.workoutCount > 0 }) {
+                                Chart(days.filter { $0.workoutCount > 0 }) { day in
+                                    BarMark(x: .value("Day", day.date, unit: .day), y: .value("Volume", day.volume)).foregroundStyle(AstraStyle.accent)
+                                }.frame(height: 150)
+                                Text("Total load × reps from logged sets. Different exercises are not directly comparable.").font(.caption).foregroundStyle(.secondary)
+                            } else { Text("Log strength sessions to see training volume.").foregroundStyle(.secondary) }
+                            NavigationLink("Exercise history and previous sets") { StrengthJournal(account: account) }
+                        }
+                    }
                 } else {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(metric == .weight ? "Look at the direction." : "Consistency, over time.")
@@ -126,7 +150,7 @@ struct TrendsView: View {
                             .font(.subheadline).foregroundStyle(.secondary).lineSpacing(4)
                     }
                 }
-                Text("Sample analytics · no health data connected")
+                Text(diary.isDemo ? "Sample analytics · no health data connected" : "Based on your saved records and readable Health data")
                     .font(.caption2).foregroundStyle(.tertiary).frame(maxWidth: .infinity)
             }.padding(22)
         }
@@ -140,15 +164,15 @@ struct TrendsView: View {
         let weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
         return Chart(Array(days.enumerated()), id: \.element.id) { index, day in
             BarMark(x: .value("Day", weekdays[index]),
-                    y: .value("Workouts", day.workout == nil ? 0 : 1), width: .ratio(0.65))
+                    y: .value("Workouts", max(day.workoutCount, day.workout == nil ? 0 : 1)), width: .ratio(0.65))
                 .foregroundStyle(AstraStyle.accent).cornerRadius(4)
                 .accessibilityLabel(day.date.formatted(.dateTime.weekday(.wide).month().day()))
-                .accessibilityValue(day.date > diary.today ? "Upcoming" : day.workout == nil ? "Rest day" : "1 workout")
+                .accessibilityValue(day.date > diary.today ? "Upcoming" : day.workout == nil ? "No logged workouts" : "\(max(day.workoutCount, 1)) workouts")
         }
         .chartXScale(domain: weekdays)
         .chartXAxis { AxisMarks(values: weekdays) { _ in AxisValueLabel() } }
-        .chartYScale(domain: 0...1)
-        .chartYAxis { AxisMarks(values: [0, 1]) }
+        .chartYScale(domain: 0...max(1, days.map { max($0.workoutCount, $0.workout == nil ? 0 : 1) }.max() ?? 1))
+        .chartYAxis { AxisMarks(values: .stride(by: 1)) }
         .accessibilityIdentifier("dailyTrainingChart")
         .accessibilityLabel("Daily workouts, Monday through Sunday")
     }
@@ -162,10 +186,14 @@ struct TrendsView: View {
                 } else {
                     LineMark(x: .value("Date", point.date), y: .value(metric.rawValue, point.value))
                         .foregroundStyle(AstraStyle.accent).lineStyle(StrokeStyle(lineWidth: 2))
+                    if points.count <= 28 {
+                        PointMark(x: .value("Date", point.date), y: .value(metric.rawValue, point.value))
+                            .foregroundStyle(AstraStyle.accent).symbolSize(18)
+                    }
                 }
             }
-            if metric == .calories || metric == .training {
-                RuleMark(y: .value("Goal", metric == .calories ? 2500 : 4))
+            if goalsAvailable && (metric == .calories || metric == .protein || metric == .training) {
+                RuleMark(y: .value("Goal", metric == .calories ? diary.goals.calories : metric == .protein ? diary.goals.protein : diary.goals.workouts))
                     .foregroundStyle(.secondary.opacity(0.4)).lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
             }
         }
@@ -186,7 +214,7 @@ struct TrendsView: View {
     }
 
     private var summary: TrendSummary {
-        TrendSummary(days: days, today: diary.today, calendar: diary.calendar)
+        TrendSummary(goals: diary.goals, complete: account?.completed, days: days, today: diary.today, calendar: diary.calendar)
     }
 
     private var combinedChart: some View {
@@ -215,10 +243,10 @@ struct TrendsView: View {
             Chart {
                 ForEach(summary.completedDays) { day in
                     BarMark(x: .value("Day", day.date, unit: .day),
-                            y: .value("Calories from target", day.calories - TrendSummary.calorieTarget))
-                        .foregroundStyle(day.calories > TrendSummary.calorieTarget ? Color.orange : AstraStyle.accent)
+                            y: .value("Calories from target", day.calories - summary.calorieTarget))
+                        .foregroundStyle(day.calories > summary.calorieTarget ? Color.orange : AstraStyle.accent)
                         .accessibilityLabel(day.date.formatted(date: .abbreviated, time: .omitted))
-                        .accessibilityValue("\(abs(day.calories - TrendSummary.calorieTarget)) calories \(day.calories > TrendSummary.calorieTarget ? "above" : "below") target")
+                        .accessibilityValue("\(abs(day.calories - summary.calorieTarget)) calories \(day.calories > summary.calorieTarget ? "above" : "below") target")
                 }
                 RuleMark(y: .value("Target", 0)).foregroundStyle(.secondary)
             }
@@ -230,7 +258,7 @@ struct TrendsView: View {
                 Label("Below", systemImage: "circle.fill").foregroundStyle(AstraStyle.accent)
                 Label("Above", systemImage: "circle.fill").foregroundStyle(.orange)
             }.font(.caption)
-            Text("Daily bars relative to 2,500 kcal. Today's unfinished log and days without meals are excluded. Sample data.")
+            Text("Daily bars relative to \(diary.goals.calories) kcal. Today and incomplete logs are excluded. Mark past food logs complete on Today.")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }

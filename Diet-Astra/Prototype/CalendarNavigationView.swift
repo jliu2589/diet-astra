@@ -7,7 +7,7 @@ struct CalendarNavigationView: View {
     @State private var month: Date
     @State private var choice: Date
     @State private var mode: ReviewPeriod
-    private let calendar = Calendar.current
+    private let calendar = Calendar.astra
 
     init(date: Binding<Date>, period: Binding<ReviewPeriod>) {
         _date = date; _period = period

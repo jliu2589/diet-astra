@@ -6,6 +6,10 @@
 	objectVersion = 90;
 	objects = {
 
+        B10000000000000000000001 = {isa = XCRemoteSwiftPackageReference; repositoryURL = "https://github.com/supabase/supabase-swift.git"; requirement = {kind = exactVersion; version = 2.55.2; }; };
+        B10000000000000000000002 = {isa = XCSwiftPackageProductDependency; package = B10000000000000000000001; productName = Supabase; };
+        B10000000000000000000003 = {isa = PBXBuildFile; productRef = B10000000000000000000002; };
+        B10000000000000000000004 = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config/App.xcconfig; sourceTree = SOURCE_ROOT; };
 /* UI interaction test target */
         A10000000000000000000001 = {isa = PBXFileSystemSynchronizedRootGroup; path = "Diet-AstraUITests"; sourceTree = "<group>"; };
         A10000000000000000000002 = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Diet-AstraUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -76,7 +80,7 @@
 /* Begin PBXFrameworksBuildPhase section */
 		000000000000000130000000 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			files = (
+			files = (B10000000000000000000003,
 			);
 		};
 /* End PBXFrameworksBuildPhase section */
@@ -118,6 +122,7 @@
 			);
 			name = "Diet-Astra";
 			productName = MyApp;
+            packageProductDependencies = (B10000000000000000000002);
 			productReference = 000000000000000000000120 /* Diet-Astra.app */;
 			productType = "com.apple.product-type.application";
 		};
@@ -146,6 +151,7 @@
 			mainGroup = 000000000000000000000001;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 90;
+            packageReferences = (B10000000000000000000001);
 			productRefGroup = 000000000000000000000020 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -307,6 +313,7 @@
 		};
 		000000000000000111000000 /* Debug configuration for PBXNativeTarget "Diet-Astra" */ = {
 			isa = XCBuildConfiguration;
+            baseConfigurationReference = B10000000000000000000004;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -314,7 +321,12 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-                INFOPLIST_KEY_NSCameraUsageDescription = "Take photos of meals to add to your local meal diary.";
+                CODE_SIGN_ENTITLEMENTS = "Diet-Astra/Diet-Astra.entitlements";
+                INFOPLIST_FILE = Config/Info.plist;
+                INFOPLIST_KEY_NSHealthShareUsageDescription = "Read your scale weight, steps, workouts, active energy and exercise minutes to show your health and activity history.";
+                INFOPLIST_KEY_NSMicrophoneUsageDescription = "Dictate a meal description for you to review.";
+                INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Turn your spoken meal description into text.";
+                INFOPLIST_KEY_NSCameraUsageDescription = "Take a meal photo to review and optionally send for nutrition analysis.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -348,6 +360,7 @@
 		};
 		000000000000000112000000 /* Release configuration for PBXNativeTarget "Diet-Astra" */ = {
 			isa = XCBuildConfiguration;
+            baseConfigurationReference = B10000000000000000000004;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -355,7 +368,12 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-                INFOPLIST_KEY_NSCameraUsageDescription = "Take photos of meals to add to your local meal diary.";
+                CODE_SIGN_ENTITLEMENTS = "Diet-Astra/Diet-Astra.entitlements";
+                INFOPLIST_FILE = Config/Info.plist;
+                INFOPLIST_KEY_NSHealthShareUsageDescription = "Read your scale weight, steps, workouts, active energy and exercise minutes to show your health and activity history.";
+                INFOPLIST_KEY_NSMicrophoneUsageDescription = "Dictate a meal description for you to review.";
+                INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Turn your spoken meal description into text.";
+                INFOPLIST_KEY_NSCameraUsageDescription = "Take a meal photo to review and optionally send for nutrition analysis.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;

@@ -10,7 +10,7 @@ enum ReviewPeriod: String, CaseIterable, Identifiable {
 }
 
 struct MealPreview: Identifiable {
-    let id = UUID()
+    var id = UUID()
     let title: String
     let detail: String
     let date: Date
@@ -30,11 +30,13 @@ struct DemoDay: Identifiable {
     var steps = 0
     var workout: String?
     var volume = 0
+    var workoutCount = 0
+    var exactNutrition: NutritionTotals? = nil
     var id: Date { date }
-    var calories: Int { meals.reduce(0) { $0 + $1.calories } }
-    var protein: Int { meals.reduce(0) { $0 + $1.protein } }
-    var carbs: Int { meals.reduce(0) { $0 + $1.carbs } }
-    var fat: Int { meals.reduce(0) { $0 + $1.fat } }
+    var calories: Int { exactNutrition.map { Int($0.calories.rounded()) } ?? meals.reduce(0) { $0 + $1.calories } }
+    var protein: Int { exactNutrition.map { Int($0.protein.rounded()) } ?? meals.reduce(0) { $0 + $1.protein } }
+    var carbs: Int { exactNutrition.map { Int($0.carbs.rounded()) } ?? meals.reduce(0) { $0 + $1.carbs } }
+    var fat: Int { exactNutrition.map { Int($0.fat.rounded()) } ?? meals.reduce(0) { $0 + $1.fat } }
     var hasNutrition: Bool { !meals.isEmpty }
 }
 
@@ -53,20 +55,24 @@ struct ReviewSummary {
         guard weights.count > 1, let first = weights.first, let last = weights.last else { return nil }
         return last - first
     }
-    var workouts: Int { days.filter { $0.workout != nil }.count }
+    var workouts: Int { days.reduce(0) { $0 + max($1.workoutCount, $1.workout == nil ? 0 : 1) } }
     var volume: Int { days.reduce(0) { $0 + $1.volume } }
 }
 
 @MainActor
 @Observable
 final class DemoDiary {
-    let today: Date
+    var goals = UserGoals.example
+    let isDemo: Bool
+    var today: Date
     private(set) var records: [Date: DemoDay] = [:]
     let calendar: Calendar
 
-    init(now: Date = .now, calendar: Calendar = .current) {
+    init(now: Date = .now, calendar: Calendar = .astra, seedSamples: Bool = true) {
+        isDemo = seedSamples
         self.calendar = calendar
         today = calendar.startOfDay(for: now)
+        guard seedSamples else { return }
         for offset in 0..<366 {
             let date = calendar.date(byAdding: .day, value: -offset, to: today)!
             func meal(_ title: String, _ detail: String, _ hour: Int, _ kcal: Int, _ p: Int, _ c: Int, _ f: Int) -> MealPreview {
@@ -93,12 +99,18 @@ final class DemoDiary {
         }
     }
 
+    func replaceRecords(_ newRecords: [Date: DemoDay]) {
+        records = newRecords
+        today = calendar.startOfDay(for: .now)
+    }
+
     func day(_ date: Date) -> DemoDay {
         let key = calendar.startOfDay(for: date)
         return records[key] ?? DemoDay(date: key)
     }
 
     func days(_ period: ReviewPeriod, containing date: Date) -> [DemoDay] {
+        if period == .week { return mondayWeek(containing: date) }
         guard let interval = calendar.dateInterval(of: period.component, for: date) else { return [] }
         var result: [DemoDay] = []
         var cursor = interval.start

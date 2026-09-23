@@ -53,6 +53,8 @@ struct NutritionSummaryView: View {
     let carbs: Int
     let fat: Int
     var averaged = false
+    @Environment(\.accountStore) private var account
+    private var goals: UserGoals { account?.goals ?? .example }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -67,17 +69,17 @@ struct NutritionSummaryView: View {
                     calorieNumber
                     VStack(alignment: .leading, spacing: 2) {
                         Text(calories.formatted()).font(.system(size: 52, weight: .regular, design: .serif))
-                        Text("/ 2,500 kcal").foregroundStyle(.secondary)
+                        Text("/ \(goals.calories.formatted()) kcal").foregroundStyle(.secondary)
                     }
                 }
-                ProgressView(value: min(Double(calories) / 2_500, 1))
+                ProgressView(value: min(Double(calories) / Double(goals.calories), 1))
                     .tint(AstraStyle.accent)
-                    .accessibilityLabel("Calories, \(calories) of 2500 kilocalories")
+                    .accessibilityLabel("Calories, \(calories) of \(goals.calories) kilocalories")
             }
             HStack(alignment: .top, spacing: 18) {
-                macro("Protein", protein, 150, emphasized: true)
-                macro("Carbs", carbs, 300)
-                macro("Fat", fat, 70)
+                macro("Protein", protein, goals.protein, emphasized: true)
+                macro("Carbs", carbs, goals.carbs)
+                macro("Fat", fat, goals.fat)
             }
             .padding(.top, 4)
         }
@@ -88,7 +90,7 @@ struct NutritionSummaryView: View {
     private var calorieNumber: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text(calories.formatted()).font(.system(size: 52, weight: .regular, design: .serif)).monospacedDigit()
-            Text("/ 2,500 kcal").font(.subheadline).foregroundStyle(.secondary)
+            Text("/ \(goals.calories.formatted()) kcal").font(.subheadline).foregroundStyle(.secondary)
         }
     }
 

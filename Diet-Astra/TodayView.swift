@@ -3,6 +3,11 @@ import SwiftUI
 
 struct TodayView: View {
     let diary: DemoDiary
+    @Environment(\.accountStore) private var account
+    @State private var composer = false
+    @State private var photoComposer = false
+    @State private var workouts = false
+    @State private var completeError: String?
     @State private var selectedDate = Date.now
     @State private var period = ReviewPeriod.day
     @State private var showingCalendar = false
@@ -17,16 +22,27 @@ struct TodayView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 dateHeader
+                if let account, account.goals == nil {
+                    NavigationLink("Set your goals to personalize progress") { GoalsEditor(account: account) }
+                    Text("Targets shown below are examples until you save your goals.").font(.caption).foregroundStyle(.secondary)
+                }
                 if period == .day {
                     NutritionSummaryView(calories: day.calories, protein: day.protein, carbs: day.carbs, fat: day.fat)
                     weightRow
-                    mealGallery
+                    if diary.isDemo { mealGallery }
                     mealList
                     activityRow
+                    if let account {
+                        Button(account.completed.contains(DayKey.string(selectedDate)) ? "Food log complete ✓ · tap to reopen" : "Mark this day's food log complete") {
+                            Task { do { try await account.markComplete(selectedDate, complete: !account.completed.contains(DayKey.string(selectedDate))); completeError = nil } catch { completeError = error.localizedDescription } }
+                        }.font(.caption).disabled(account.saving || account.loading || day.meals.isEmpty || selectedDate > .now)
+                        Text("Mark complete only after logging everything you ate. Maintenance estimates use completed days.").font(.caption2).foregroundStyle(.secondary)
+                        if let completeError { Text(completeError).font(.caption).foregroundStyle(.red) }
+                    }
                 } else {
                     periodReview
                 }
-                Text("Sample data · for design review")
+                Text(diary.isDemo ? "Sample data · for design review" : "Your saved records · Health data stays on device")
                     .font(.caption2).foregroundStyle(.tertiary)
                     .frame(maxWidth: .infinity).padding(.top, 4)
             }
@@ -36,17 +52,29 @@ struct TodayView: View {
         .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if period == .day {
-                MealEntryDock(diary: diary, date: selectedDate)
-                    .id(diary.calendar.startOfDay(for: selectedDate))
+                if account != nil {
+                    HStack { Spacer(); RoundButton(symbol: "camera", label: "Add meal from photo") { photoComposer = true }; RoundButton(symbol: "plus", label: "Add meal", prominent: true) { composer = true } }.padding(.horizontal, 22).padding(.vertical, 10)
+                        .disabled(diary.calendar.startOfDay(for: selectedDate) > diary.calendar.startOfDay(for: .now))
+                } else {
+                    MealEntryDock(diary: diary, date: selectedDate).id(diary.calendar.startOfDay(for: selectedDate))
+                }
             }
         }
         .sheet(isPresented: $showingCalendar) {
             CalendarNavigationView(date: $selectedDate, period: $period)
         }
         .sheet(isPresented: $showingWeight) {
-            DemoWeightSheet(diary: diary, date: selectedDate)
+            if let account { NavigationStack { WeightJournal(account: account, date: selectedDate).toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { showingWeight = false } } } } }
+            else { DemoWeightSheet(diary: diary, date: selectedDate) }
         }
-        .sheet(item: $selectedMeal) { meal in MealDetailView(meal: meal) }
+        .sheet(item: $selectedMeal) { meal in
+            if let account, let saved = account.meals.first(where: { $0.id == meal.id }) { MealEditor(account: account, meal: saved, existing: true) }
+            else { MealDetailView(meal: meal) }
+        }
+        .sheet(isPresented: $composer) { if let account { LiveMealComposer(account: account, date: selectedDate) } }
+        .sheet(isPresented: $photoComposer) { if let account { LiveMealComposer(account: account, date: selectedDate, photoMode: true) } }
+        .sheet(isPresented: $workouts) { if let account { NavigationStack { StrengthJournal(account: account, date: selectedDate).toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { workouts = false } } } } } }
+        .refreshable { await account?.reload(); await account?.refreshHealth() }
     }
 
     private var dateHeader: some View {
@@ -104,7 +132,7 @@ struct TodayView: View {
                     .frame(width: 42, height: 42).background(AstraStyle.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Body weight").font(.subheadline.weight(.medium))
-                    Text(day.weight == nil ? "A small check-in. A clearer picture." : "Daily check-in · sample")
+                    Text(day.weight == nil ? "A small check-in. A clearer picture." : (diary.isDemo ? "Daily check-in · sample" : "Latest measurement for this day"))
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 4)
@@ -118,7 +146,7 @@ struct TodayView: View {
             .foregroundStyle(.primary).contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(day.weight == nil ? "Add weight for selected day" : "Update sample weight for selected day")
+        .accessibilityLabel(day.weight == nil ? "Add weight for selected day" : "Open weight journal for selected day")
         .accessibilityIdentifier("weightCheckIn")
     }
 
@@ -166,7 +194,7 @@ struct TodayView: View {
                         VStack(alignment: .leading, spacing: 5) {
                             Text(meal.title).font(.subheadline.weight(.semibold))
                             Text(meal.detail).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
-                            Text("\(meal.calories) kcal · \(meal.protein) g protein")
+                            Text("\(meal.calories) kcal · \(meal.protein) g protein\(meal.isEstimate ? " · estimated" : "")")
                                 .font(.caption).foregroundStyle(AstraStyle.accent)
                         }
                         Spacer(minLength: 0)
@@ -183,10 +211,23 @@ struct TodayView: View {
         VStack(alignment: .leading, spacing: 16) {
             SectionHeading(title: "Movement")
             HStack {
-                Label("\(day.steps.formatted()) steps", systemImage: "figure.walk")
+                Label(account != nil && account?.health.steps[DayKey.string(selectedDate)] == nil ? "Steps unavailable" : "\(day.steps.formatted()) steps", systemImage: "figure.walk")
                 Spacer()
-                Text(day.workout == nil ? "Rest day" : "1 workout").foregroundStyle(.secondary)
+                Text(day.workout == nil ? "No strength log" : "\(max(day.workoutCount, 1)) workouts").foregroundStyle(.secondary)
             }.font(.subheadline)
+            if let account {
+                Button("Log / view strength workouts", systemImage: "dumbbell") { workouts = true }
+                Text(account.health.workoutCounts[DayKey.string(selectedDate)].map { "Apple Health workouts: \($0). Shown separately from strength logs." } ?? "No readable Apple Health workouts for this day.").font(.caption).foregroundStyle(.secondary)
+                HStack {
+                    Text(account.health.activeCalories[DayKey.string(selectedDate)].map { "\($0.formatted(.number.precision(.fractionLength(0)))) active kcal" } ?? "Active energy unavailable")
+                    Spacer()
+                    Text(account.health.exerciseMinutes[DayKey.string(selectedDate)].map { "\($0.formatted(.number.precision(.fractionLength(0)))) exercise min" } ?? "Exercise unavailable")
+                }.font(.caption).foregroundStyle(.secondary)
+                NavigationLink(account.healthEnabled ? "View Apple Health activity" : "Connect Apple Health") {
+                    HealthOverview(account: account, date: selectedDate)
+                }
+                if account.healthEnabled { Text(account.healthMessage).font(.caption2).foregroundStyle(.secondary) }
+            }
             if let workout = day.workout {
                 HStack {
                     Label(workout, systemImage: "dumbbell")
@@ -204,13 +245,16 @@ struct TodayView: View {
             Text("Based on \(summary.loggedDays.count) days with meals logged. Empty days are excluded from averages.")
                 .font(.caption).foregroundStyle(.secondary)
             if summary.loggedDays.isEmpty {
-                ContentUnavailableView("Nothing logged yet", systemImage: "calendar", description: Text("Choose an earlier period to explore your sample history."))
-            } else {
+                ContentUnavailableView("Nothing logged yet", systemImage: "calendar", description: Text("Log meals to see nutrition averages for this period."))
+            }
+            if !summary.loggedDays.isEmpty {
                 SectionHeading(title: "Daily intake", detail: "kcal")
                 Chart(summary.loggedDays) { day in
                     BarMark(x: .value("Date", day.date, unit: .day), y: .value("Calories", day.calories))
                         .foregroundStyle(AstraStyle.accent.opacity(0.7)).cornerRadius(3)
                 }.frame(height: 140).accessibilityLabel("Daily calorie intake for selected period")
+            }
+            Group {
                 Divider()
                 SectionHeading(title: "The bigger picture")
                 HStack(alignment: .top) {
@@ -224,7 +268,8 @@ struct TodayView: View {
                     Spacer()
                     summaryMetric("Total volume", "\(summary.volume.formatted()) lb")
                 }
-                Text("Weight change compares the first and last recorded measurements. Volume is total weight × reps across sample workouts.")
+                summaryMetric("Total steps", summary.days.reduce(0) { $0 + $1.steps }.formatted())
+                Text("Weight change compares the first and last recorded measurements. Volume is total weight × reps across logged workouts.")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }

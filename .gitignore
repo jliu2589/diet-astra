@@ -46,3 +46,7 @@ fastlane/test_output/
 *.swp
 *.swo
 *~
+
+# Per-developer backend configuration
+Config/Local.xcconfig
+supabase/.temp/

@@ -1,0 +1,4 @@
+project_id = "diet-astra"
+[functions.interpret-meal]
+# The function validates the bearer token with Auth, including modern publishable-key projects.
+verify_jwt = false

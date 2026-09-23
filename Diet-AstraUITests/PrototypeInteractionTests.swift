@@ -7,6 +7,7 @@ final class PrototypeInteractionTests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication()
+        app.launchArguments = ["--demo"]
         app.launch()
         XCTAssertTrue(app.buttons["reviewDate"].waitForExistence(timeout: 15))
     }
@@ -24,7 +25,7 @@ final class PrototypeInteractionTests: XCTestCase {
         app.tabBars.buttons["Trends"].tap()
         let selector = app.segmentedControls["trendMetric"]
         XCTAssertTrue(selector.waitForExistence(timeout: 5))
-        for metric in ["Calories", "Training", "All", "Weight"] {
+        for metric in ["Calories", "Protein", "Training", "All", "Weight"] {
             selector.buttons[metric].tap()
             XCTAssertTrue(selector.buttons[metric].isSelected)
             if metric == "All" {

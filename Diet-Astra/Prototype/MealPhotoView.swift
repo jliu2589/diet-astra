@@ -86,7 +86,7 @@ struct MealPhotoSource: View {
         await AVCaptureDevice.requestAccess(for: .video)
     }
 
-    // Bound memory use and discard source metadata; photos remain in the demo diary only.
+    // Bound memory use and discard source metadata; analysis photos remain temporary; source location metadata is not transmitted.
     private static func prepare(_ image: UIImage) -> Data? {
         let scale = min(1, 1600 / max(image.size.width, image.size.height))
         let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)

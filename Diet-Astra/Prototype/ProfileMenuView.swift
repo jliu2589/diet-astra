@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ProfileMenuView: View {
+    @Environment(\.accountStore) private var account
     @Environment(\.dismiss) private var dismiss
     @State private var showingWeightJournal = false
     var body: some View {
@@ -8,29 +9,31 @@ struct ProfileMenuView: View {
             List {
                 Section {
                     HStack(spacing: 16) {
-                        Text("AM").font(.system(.title2, design: .serif))
+                        Text(account == nil ? "AM" : "A").font(.system(.title2, design: .serif))
                             .frame(width: 58, height: 58).background(AstraStyle.accent.opacity(0.1), in: Circle())
                         VStack(alignment: .leading, spacing: 5) {
-                            Text("Alex Morgan").font(.title3.weight(.semibold))
+                            Text(account.map { $0.name.isEmpty ? "Your Astra" : $0.name } ?? "Alex Morgan").font(.title3.weight(.semibold))
                             Text("Your space to build better habits.").font(.caption).foregroundStyle(.secondary)
                         }
                     }.padding(.vertical, 12)
                 }.listRowBackground(Color.clear)
                 Section {
-                    NavigationLink { GoalsView() } label: { Label("Goals", systemImage: "scope").padding(.vertical, 8) }
-                    NavigationLink { SettingsView() } label: { Label("Settings", systemImage: "gearshape").padding(.vertical, 8) }
+                    NavigationLink { if let account { GoalsEditor(account: account) } else { GoalsView() } } label: { Label("Goals", systemImage: "scope").padding(.vertical, 8) }
+                    NavigationLink { if let account { AccountSettings(account: account) } else { SettingsView() } } label: { Label("Settings", systemImage: "gearshape").padding(.vertical, 8) }
                 }
-                Section {
-                    Button { showingWeightJournal = true } label: {
-                        Label("Saved weight journal", systemImage: "scalemass").padding(.vertical, 8)
+                if let account {
+                    Section {
+                        NavigationLink { HealthOverview(account: account) } label: { Label("Apple Health", systemImage: "heart") }
+                        NavigationLink("Weight journal") { WeightJournal(account: account) }
+                        NavigationLink("Strength workouts") { StrengthJournal(account: account) }
                     }
-                } footer: {
-                    Text("Your original on-device weight log. Separate from this sample diary.")
+                } else {
+                    Section { Button("Saved weight journal") { showingWeightJournal = true } }
                 }
                 Section {
                     Text("DESIGNED FOR THE LONG RUN")
                         .font(.caption2.weight(.medium)).tracking(1.6).foregroundStyle(.secondary)
-                    Text("Demo profile · sample goals").font(.caption).foregroundStyle(.secondary)
+                    Text(account == nil ? "Demo profile · sample goals" : "Private account").font(.caption).foregroundStyle(.secondary)
                 }.listRowBackground(Color.clear)
             }
             .scrollContentBackground(.hidden).background(AstraStyle.background)
